@@ -63,8 +63,39 @@ struct CameraView: UIViewControllerRepresentable {
         }
 
         private func dummyAIDetector(text: String) -> Double {
-            // TEMP: Fake detection logic (replace later with real model)
-            return text.lowercased().contains("ai") ? 0.85 : 0.15
+            do {
+                let model = try DocumentClassification(configuration: MLModelConfiguration())
+
+                // Step 1: Preprocess text into a [String: Double] bag-of-words
+                let words = text
+                    .lowercased()
+                    .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                    .filter { !$0.isEmpty }
+
+                var wordCounts: [String: Double] = [:]
+                for word in words {
+                    wordCounts[word, default: 0] += 1.0
+                }
+
+                // Step 2: Run prediction
+                let result = try model.prediction(input: wordCounts)
+
+                print("Predicted class: \(result.classLabel)")
+                print("Probabilities: \(result.classProbability)")
+
+                // Step 3: Artificially treat some labels as more "AI-like"
+                let aiLeaningLabels: Set<String> = ["technology", "business"]
+                if aiLeaningLabels.contains(result.classLabel.lowercased()) {
+                    return result.classProbability[result.classLabel] ?? 0.75
+                } else {
+                    return 1.0 - (result.classProbability[result.classLabel] ?? 0.25)
+                }
+
+            } catch {
+                print("Model prediction failed: \(error)")
+                return 0.0
+            }
         }
+
     }
 }
